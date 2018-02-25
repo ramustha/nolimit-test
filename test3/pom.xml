@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.ramusthastudio.nolimit</groupId>
+    <artifactId>nolimit-test</artifactId>
+    <version>1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>test3</artifactId>
+  <version>1.0-SNAPSHOT</version>
+
+  <name>Test 3</name>
+  <description>Test 3</description>
+
+  <properties>
+    <!-- Database -->
+    <db.url>jdbc:mysql://localhost:3306/swapidb</db.url>
+    <db.name>swapidb</db.name>
+    <db.username>root</db.username>
+    <db.password></db.password>
+    <db.driver>com.mysql.cj.jdbc.Driver</db.driver>
+    <db.jooq.dialect>org.jooq.util.mysql.MySQLDatabase</db.jooq.dialect>
+    <db.jooq.table.matcher.rule>^(.*?)_(.*)$</db.jooq.table.matcher.rule>
+
+    <mvn.flyway.plugin.version>4.2.0</mvn.flyway.plugin.version>
+    <mvn.jooq.codegen.version>3.9.5</mvn.jooq.codegen.version>
+
+    <!-- Database -->
+    <jooq.version>3.9.5</jooq.version>
+    <mysql.version>6.0.3</mysql.version>
+
+  </properties>
+
+  <dependencies>
+    <!-- Database/Jooq -->
+    <dependency>
+      <groupId>org.jooq</groupId>
+      <artifactId>jooq</artifactId>
+      <version>${jooq.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>mysql</groupId>
+      <artifactId>mysql-connector-java</artifactId>
+      <version>${mysql.version}</version>
+      <scope>runtime</scope>
+    </dependency>
+  </dependencies>
+
+  <profiles>
+    <profile>
+      <id>db-migrate</id>
+      <build>
+        <!-- The resources element will replace available properties in all matching
+             resources. We use this to provide H2 connection configuration to various
+             configuration elements -->
+        <resources>
+          <resource>
+            <filtering>true</filtering>
+            <directory>src/test/resources</directory>
+            <includes>
+              <include>**/*.xml</include>
+              <include>**/*.properties</include>
+            </includes>
+          </resource>
+        </resources>
+
+        <plugins>
+
+          <plugin>
+            <artifactId>maven-clean-plugin</artifactId>
+            <version>3.0.0</version>
+            <configuration>
+              <filesets>
+                <fileset>
+                  <directory>src/generated/java/jooq</directory>
+                </fileset>
+              </filesets>
+            </configuration>
+          </plugin>
+
+          <!-- Flyway database migration -->
+          <plugin>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-maven-plugin</artifactId>
+            <version>${mvn.flyway.plugin.version}</version>
+
+            <configuration>
+              <driver>${db.driver}</driver>
+              <url>${db.url}</url>
+              <user>${db.username}</user>
+              <password>${db.password}</password>
+
+              <locations>
+                <!-- Note that we need to prefix the repository/migration path with filesystem: to prevent
+                     Flyway from looking for our migration scripts only on the classpath -->
+                <location>filesystem:db/migration</location>
+              </locations>
+            </configuration>
+
+            <!-- Note that we're executing the Flyway plugin in the "generate-sources" phase -->
+            <executions>
+              <execution>
+                <phase>generate-sources</phase>
+                <goals>
+                  <goal>clean</goal>
+                  <goal>migrate</goal>
+                </goals>
+              </execution>
+            </executions>
+
+            <dependencies>
+              <dependency>
+                <groupId>mysql</groupId>
+                <artifactId>mysql-connector-java</artifactId>
+                <version>${mysql.version}</version>
+                <scope>runtime</scope>
+              </dependency>
+            </dependencies>
+          </plugin>
+
+          <!-- JOOQ -->
+          <plugin>
+            <groupId>org.jooq</groupId>
+            <artifactId>jooq-codegen-maven</artifactId>
+            <version>${mvn.jooq.codegen.version}</version>
+
+            <configuration>
+
+              <!-- JDBC connection parameters -->
+              <jdbc>
+                <driver>${db.driver}</driver>
+                <url>${db.url}</url>
+                <user>${db.username}</user>
+                <password>${db.password}</password>
+              </jdbc>
+
+              <!-- Generator parameters -->
+              <generator>
+                <!-- The default code generator. You can override this one, to generate your own code style.
+                     Supported generators:
+                     - org.jooq.util.JavaGenerator
+                     - org.jooq.util.ScalaGenerator
+                     Defaults to org.jooq.util.JavaGenerator -->
+                <name>org.jooq.util.JavaGenerator</name>
+
+                <database>
+                  <!-- The database type. The format here is:
+                       org.util.[database].[database]Database -->
+                  <name>${db.jooq.dialect}</name>
+
+                  <!-- The database schema (or in the absence of schema support, in your RDBMS this
+                       can be the owner, user, database name) to be generated -->
+                  <inputSchema>${db.name}</inputSchema>
+
+                  <!-- All elements that are generated from your schema
+                       (A Java regular expression. Use the pipe to separate several expressions)
+                       Watch out for case-sensitivity. Depending on your database, this might be important! -->
+                  <includes>.*</includes>
+
+                  <!-- All elements that are excluded from your schema
+                       (A Java regular expression. Use the pipe to separate several expressions).
+                       Excludes match before includes, i.e. excludes have a higher priority -->
+                  <excludes></excludes>
+                </database>
+
+                <target>
+                  <!-- The destination package of your generated classes (within the
+                       destination directory)
+
+                       jOOQ may append the schema name to this package if generating multiple schemas,
+                       e.g. org.jooq.your.packagename.schema1
+                            org.jooq.your.packagename.schema2 -->
+                  <packageName>com.ramusthastudio.test3</packageName>
+
+                  <!-- The destination directory of your generated classes -->
+                  <directory>${basedir}/src/generated/java/jooq</directory>
+                </target>
+              </generator>
+            </configuration>
+
+            <!-- The jOOQ code generation plugin is also executed in the generate-sources phase, prior
+                 to compilation -->
+            <executions>
+              <execution>
+                <phase>generate-sources</phase>
+                <goals>
+                  <goal>generate</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
+</project>
